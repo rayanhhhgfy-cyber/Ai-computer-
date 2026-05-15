@@ -41,7 +41,8 @@ You can control the AI on your PC from your iPhone without installing anything.
 - Get your `URL` and `Anon Key`.
 
 ### 2. Vercel Deployment
-- Upload the `web_app/` folder to Vercel.
+- Import this repository to Vercel.
+- **Important:** In Vercel Project Settings, set the **Root Directory** to `web_app`.
 - Add Environment Variables:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`

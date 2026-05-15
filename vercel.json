@@ -1,0 +1,7 @@
+{
+  "name": "Peak AI Remote",
+  "framework": "nextjs",
+  "installCommand": "cd web_app && npm install",
+  "buildCommand": "cd web_app && npm run build",
+  "outputDirectory": "web_app/.next"
+}
