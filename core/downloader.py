@@ -26,12 +26,14 @@ def get_best_model_for_specs():
     Logic to select the best model based on 8GB RAM.
     Returns (llm_url, vision_url)
     """
-    # Optimized GGUF for 8GB RAM
+    # Optimized GGUF for 8GB RAM (Phi-3 Mini)
     llm_url = "https://huggingface.co/bartowski/Phi-3-mini-4k-instruct-GGUF/resolve/main/Phi-3-mini-4k-instruct-Q4_K_M.gguf"
-    vision_url = "https://huggingface.co/vikhyatk/moondream2/resolve/main/moondream2.gguf" # Hypothetical GGUF path
+    # Optimized Vision model for 8GB RAM (Moondream2)
+    vision_url = "https://huggingface.co/vikhyatk/moondream2/resolve/main/moondream2.gguf"
     return llm_url, vision_url
 
 if __name__ == "__main__":
     llm, vision = get_best_model_for_specs()
     os.makedirs("data/models", exist_ok=True)
     download_model(llm, "data/models/phi3.gguf")
+    download_model(vision, "data/models/moondream.gguf")

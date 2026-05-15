@@ -29,6 +29,30 @@ A lightweight, autonomous AI agent that runs on your computer, sees your screen,
    - Type what you want the AI to do in the "Instructions" box.
    - Watch the execution log to see its "Thoughts" and "Actions".
 
+## Remote Control (iPhone / Vercel)
+You can control the AI on your PC from your iPhone without installing anything.
+
+### 1. Supabase Setup
+- Create a free project on [Supabase](https://supabase.com).
+- Create 3 tables:
+  1. `logs` (column: `message` text)
+  2. `commands` (columns: `instruction` text, `status` text)
+  3. `state` (columns: `id` int8 primary, `last_screenshot` text)
+- Get your `URL` and `Anon Key`.
+
+### 2. Vercel Deployment
+- Upload the `web_app/` folder to Vercel.
+- Add Environment Variables:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- Use the password: `rayyan3mkidk` on your iPhone.
+
+### 3. PC Setup
+- In the Peak AI UI, open "Remote Control" settings.
+- Enter your Supabase URL and Key.
+- Toggle "Enable Remote Control".
+- Click "WAKE UP AGENT".
+
 ## For Developers: Building the .exe
 If you want to bundle this into a single executable:
 1. Open terminal in the project folder.

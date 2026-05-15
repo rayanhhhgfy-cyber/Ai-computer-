@@ -9,6 +9,7 @@ from core.controller import ComputerController
 # Attempt to import llama-cpp for offline mode
 try:
     from llama_cpp import Llama
+    from llama_cpp.llama_chat_format import MoondreamChatHandler
     LLAMA_AVAILABLE = True
 except ImportError:
     LLAMA_AVAILABLE = False
@@ -26,16 +27,22 @@ class AIEngine:
             self.model = model
         else:
             if LLAMA_AVAILABLE:
-                model_path = "data/models/phi3.gguf"
-                if not os.path.exists(model_path):
-                    # In a real app, we'd trigger downloader here or in UI
-                    print(f"Warning: Local model not found at {model_path}")
-                    self.local_llm = None
+                llm_path = "data/models/phi3.gguf"
+                vision_path = "data/models/moondream.gguf"
+                if os.path.exists(llm_path) and os.path.exists(vision_path):
+                    chat_handler = MoondreamChatHandler(model_path=vision_path)
+                    self.local_llm = Llama(
+                        model_path=llm_path,
+                        chat_handler=chat_handler,
+                        n_ctx=2048,
+                        n_threads=4
+                    )
                 else:
-                    self.local_llm = Llama(model_path=model_path, n_ctx=2048, n_threads=4)
+                    print(f"Warning: Local models missing. Run downloader first.")
+                    self.local_llm = None
             else:
                 self.local_llm = None
-            self.model = "local-phi3"
+            self.model = "local-phi3-vision"
 
     def _load_history(self):
         os.makedirs("data/history", exist_ok=True)
@@ -67,15 +74,28 @@ Stay focused and efficient.
 """
 
     def process_step(self, user_input=None):
-        screenshot_b64 = self.vision.get_base64_screenshot()
+        screenshot_path = self.vision.save_screenshot("data/last_view.jpg", scale=0.5)
+        screenshot_b64 = self.vision.get_base64_screenshot(scale=0.5)
 
         if self.offline_mode:
             if not self.local_llm:
-                return "Error: Local model not found or llama-cpp not installed."
+                return "Error: Local models missing or llama-cpp not installed."
 
-            prompt = f"{self.get_system_prompt()}\n\nUser: {user_input}\nAssistant:"
-            response = self.local_llm(prompt, max_tokens=200, stop=["User:"])
-            content = response['choices'][0]['text']
+            # Using llama-cpp vision chat format
+            response = self.local_llm.create_chat_completion(
+                messages=[
+                    {"role": "system", "content": self.get_system_prompt()},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": user_input or "Continue the task."},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{screenshot_b64}"}}
+                        ]
+                    }
+                ],
+                max_tokens=200
+            )
+            content = response['choices'][0]['message']['content']
             self._parse_and_execute(content)
             return content
 
