@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Send, Terminal, Monitor, Lock, AlertCircle } from 'lucide-react';
 
-// Use environment variables, but handle the case where they might be missing during build
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Use placeholders during build to prevent "supabaseUrl is required" error
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
 
-// Initialize client only if we have the credentials
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+// Check if we are actually configured
+const isConfigured = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+// Initialize client (always succeeds with placeholders)
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function RemoteControl() {
   const [password, setPassword] = useState('');
@@ -15,10 +18,10 @@ export default function RemoteControl() {
   const [command, setCommand] = useState('');
   const [logs, setLogs] = useState([]);
   const [screenshot, setScreenshot] = useState('');
-  const [status, setStatus] = useState('Disconnected');
 
   useEffect(() => {
-    if (isAuth && supabase) {
+    // Only run if configured and authenticated
+    if (isAuth && isConfigured && supabase) {
       // Real-time logs
       const logSub = supabase.channel('logs').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logs' }, payload => {
         setLogs(prev => [payload.new, ...prev].slice(0, 50));
@@ -31,11 +34,15 @@ export default function RemoteControl() {
 
       // Initial fetch
       const fetchInitial = async () => {
-        const { data: logData } = await supabase.from('logs').select('*').order('created_at', { ascending: false }).limit(20);
-        if (logData) setLogs(logData);
+        try {
+          const { data: logData } = await supabase.from('logs').select('*').order('created_at', { ascending: false }).limit(20);
+          if (logData) setLogs(logData);
 
-        const { data: stateData } = await supabase.from('state').select('last_screenshot').eq('id', 1).single();
-        if (stateData) setScreenshot(stateData.last_screenshot);
+          const { data: stateData } = await supabase.from('state').select('last_screenshot').eq('id', 1).single();
+          if (stateData) setScreenshot(stateData.last_screenshot);
+        } catch (e) {
+          console.error("Fetch error:", e);
+        }
       };
 
       fetchInitial();
@@ -56,19 +63,24 @@ export default function RemoteControl() {
   };
 
   const sendCommand = async () => {
-    if (!command || !supabase) return;
+    if (!command || !isConfigured) return;
     const { error } = await supabase.from('commands').insert([{ instruction: command, status: 'pending' }]);
     if (error) alert(error.message);
     else setCommand('');
   };
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!isConfigured) {
     return (
       <div style={{ backgroundColor: '#121212', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', fontFamily: 'sans-serif', padding: 20, textAlign: 'center' }}>
         <AlertCircle size={48} color="#f44336" style={{ marginBottom: 20 }} />
-        <h1>Missing API Keys</h1>
-        <p>Please add <b>NEXT_PUBLIC_SUPABASE_URL</b> and <b>NEXT_PUBLIC_SUPABASE_ANON_KEY</b> to your Vercel Environment Variables.</p>
-        <p style={{ fontSize: 12, color: '#666' }}>Then redeploy the project.</p>
+        <h1>Remote Bridge Setup</h1>
+        <p>This is the iPhone Remote Control for your AI Agent.</p>
+        <p>To finish setup, add these <b>Environment Variables</b> in Vercel:</p>
+        <div style={{ textAlign: 'left', backgroundColor: '#222', padding: 15, borderRadius: 10, marginTop: 10, width: '100%', maxWidth: 400 }}>
+          <code>NEXT_PUBLIC_SUPABASE_URL</code><br/>
+          <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>
+        </div>
+        <p style={{ fontSize: 14, color: '#aaa', marginTop: 20 }}>After adding them, your iPhone will be able to control your PC.</p>
       </div>
     );
   }
