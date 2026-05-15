@@ -42,7 +42,8 @@ You can control the AI on your PC from your iPhone without installing anything.
 
 ### 2. Vercel Deployment
 - Import this repository to Vercel.
-- **Important:** In Vercel Project Settings, set the **Root Directory** to `web_app`.
+- **CRITICAL STEP:** During the "Configure Project" step, click **Edit** next to "Root Directory" and select the `web_app` folder.
+- Vercel will automatically detect the Next.js framework.
 - Add Environment Variables:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`

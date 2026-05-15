@@ -2,6 +2,7 @@ import os
 import json
 import time
 import re
+import pyautogui
 from openai import OpenAI
 from core.vision import VisionSystem
 from core.controller import ComputerController
@@ -19,6 +20,7 @@ class AIEngine:
         self.offline_mode = offline_mode
         self.vision = VisionSystem()
         self.controller = ComputerController()
+        self.screen_width, self.screen_height = pyautogui.size()
         self.history_file = "data/history/session.json"
         self.history = self._load_history()
 
@@ -38,7 +40,7 @@ class AIEngine:
                         n_threads=4
                     )
                 else:
-                    print(f"Warning: Local models missing. Run downloader first.")
+                    print(f"Warning: Local models missing.")
                     self.local_llm = None
             else:
                 self.local_llm = None
@@ -59,29 +61,35 @@ class AIEngine:
             json.dump(self.history, f)
 
     def get_system_prompt(self):
-        return """You are an autonomous AI Agent with full control over the user's computer.
+        return f"""You are an autonomous AI Agent with full control over the user's computer.
+The screen resolution is {self.screen_width}x{self.screen_height}.
 Your goal is to assist the user by performing complex tasks directly on their machine.
 You can see the user's screen through screenshots.
-You can move the mouse, click, type, and run shell commands.
 
-You must respond in a specific format to execute actions:
-THOUGHT: (Your reasoning about what to do next)
-ACTION: (The action you want to take: MOVE_MOUSE(x,y), CLICK(x,y), TYPE("text"), PRESS("key"), RUN_CMD("command"))
-WAIT: (Seconds to wait after action, e.g. 1)
+Actions you can take:
+- MOVE_MOUSE(x,y): Move mouse to absolute coordinates.
+- CLICK(x,y): Click at coordinates.
+- TYPE("text"): Type text.
+- PRESS("key"): Press a keyboard key.
+- RUN_CMD("command"): Run a shell command.
+- BG_CLICK("window_title", "button_text"): Click a button in a specific window in the background.
 
-If you have finished the task, end your thought with "TASK_COMPLETE".
-Stay focused and efficient.
+Response format:
+THOUGHT: (Your reasoning)
+ACTION: (The action to take)
+WAIT: (Seconds to wait)
+
+If finished, end with "TASK_COMPLETE".
 """
 
     def process_step(self, user_input=None):
-        screenshot_path = self.vision.save_screenshot("data/last_view.jpg", scale=0.5)
+        # We scale to 0.5 for the AI, so the AI needs to know the true resolution
         screenshot_b64 = self.vision.get_base64_screenshot(scale=0.5)
 
         if self.offline_mode:
             if not self.local_llm:
                 return "Error: Local models missing or llama-cpp not installed."
 
-            # Using llama-cpp vision chat format
             response = self.local_llm.create_chat_completion(
                 messages=[
                     {"role": "system", "content": self.get_system_prompt()},
@@ -99,9 +107,7 @@ Stay focused and efficient.
             self._parse_and_execute(content)
             return content
 
-        messages = [
-            {"role": "system", "content": self.get_system_prompt()},
-        ]
+        messages = [{"role": "system", "content": self.get_system_prompt()}]
         messages.extend(self.history[-10:])
 
         if user_input:
@@ -138,27 +144,31 @@ Stay focused and efficient.
             return f"Error: {str(e)}"
 
     def _parse_and_execute(self, content):
+        # Extract actions
         actions = re.findall(r'ACTION:\s*(\w+)\((.*?)\)', content)
         for action_name, args in actions:
             try:
+                # Clean args
+                clean_args = [a.strip().strip('"').strip("'") for a in args.split(',')]
+
                 if action_name == "MOVE_MOUSE":
-                    x, y = map(int, args.split(','))
+                    x, y = map(int, clean_args)
                     self.controller.move_mouse(x, y)
                 elif action_name == "CLICK":
-                    if ',' in args:
-                        x, y = map(int, args.split(','))
+                    if len(clean_args) == 2:
+                        x, y = map(int, clean_args)
                         self.controller.click(x, y)
                     else:
                         self.controller.click()
                 elif action_name == "TYPE":
-                    text = args.strip('"').strip("'")
-                    self.controller.type_text(text)
+                    self.controller.type_text(clean_args[0])
                 elif action_name == "PRESS":
-                    key = args.strip('"').strip("'")
-                    self.controller.press_key(key)
+                    self.controller.press_key(clean_args[0])
                 elif action_name == "RUN_CMD":
-                    cmd = args.strip('"').strip("'")
-                    self.controller.run_command(cmd)
+                    self.controller.run_command(clean_args[0])
+                elif action_name == "BG_CLICK":
+                    win_title, btn_text = clean_args
+                    self.controller.interact_with_window(win_title, "click", btn_text)
             except Exception as e:
                 print(f"Failed to execute {action_name}: {e}")
 
