@@ -40,7 +40,6 @@ class AIEngine:
                         n_threads=4
                     )
                 else:
-                    print(f"Warning: Local models missing.")
                     self.local_llm = None
             else:
                 self.local_llm = None
@@ -67,12 +66,12 @@ Your goal is to assist the user by performing complex tasks directly on their ma
 You can see the user's screen through screenshots.
 
 Actions you can take:
-- MOVE_MOUSE(x,y): Move mouse to absolute coordinates.
-- CLICK(x,y): Click at coordinates.
-- TYPE("text"): Type text.
-- PRESS("key"): Press a keyboard key.
-- RUN_CMD("command"): Run a shell command.
-- BG_CLICK("window_title", "button_text"): Click a button in a specific window in the background.
+- MOVE_MOUSE(x,y)
+- CLICK(x,y)
+- TYPE("text")
+- PRESS("key")
+- RUN_CMD("command")
+- BG_CLICK("window_title", "button_text")
 
 Response format:
 THOUGHT: (Your reasoning)
@@ -83,7 +82,6 @@ If finished, end with "TASK_COMPLETE".
 """
 
     def process_step(self, user_input=None):
-        # We scale to 0.5 for the AI, so the AI needs to know the true resolution
         screenshot_b64 = self.vision.get_base64_screenshot(scale=0.5)
 
         if self.offline_mode:
@@ -96,7 +94,7 @@ If finished, end with "TASK_COMPLETE".
                     {
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": user_input or "Continue the task."},
+                            {"type": "text", "text": user_input or "Observe the screen and continue."},
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{screenshot_b64}"}}
                         ]
                     }
@@ -134,7 +132,7 @@ If finished, end with "TASK_COMPLETE".
                 max_tokens=500
             )
             content = response.choices[0].message.content
-            self.history.append({"role": "user", "content": "Visual context updated."})
+            self.history.append({"role": "user", "content": f"Command: {user_input}" if user_input else "Visual observation."})
             self.history.append({"role": "assistant", "content": content})
             self._save_history()
 
@@ -144,33 +142,36 @@ If finished, end with "TASK_COMPLETE".
             return f"Error: {str(e)}"
 
     def _parse_and_execute(self, content):
-        # Extract actions
-        actions = re.findall(r'ACTION:\s*(\w+)\((.*?)\)', content)
-        for action_name, args in actions:
-            try:
-                # Clean args
-                clean_args = [a.strip().strip('"').strip("'") for a in args.split(',')]
+        # Improved parser for quoted strings with commas
+        action_match = re.search(r'ACTION:\s*(\w+)\((.*?)\)', content)
+        if not action_match:
+            return
 
-                if action_name == "MOVE_MOUSE":
-                    x, y = map(int, clean_args)
-                    self.controller.move_mouse(x, y)
-                elif action_name == "CLICK":
-                    if len(clean_args) == 2:
-                        x, y = map(int, clean_args)
-                        self.controller.click(x, y)
-                    else:
-                        self.controller.click()
-                elif action_name == "TYPE":
-                    self.controller.type_text(clean_args[0])
-                elif action_name == "PRESS":
-                    self.controller.press_key(clean_args[0])
-                elif action_name == "RUN_CMD":
-                    self.controller.run_command(clean_args[0])
-                elif action_name == "BG_CLICK":
-                    win_title, btn_text = clean_args
-                    self.controller.interact_with_window(win_title, "click", btn_text)
-            except Exception as e:
-                print(f"Failed to execute {action_name}: {e}")
+        action_name = action_match.group(1)
+        args_str = action_match.group(2)
+
+        # Regex to split by comma but ignore commas inside quotes
+        parts = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', args_str)
+        clean_args = [p.strip().strip('"').strip("'") for p in parts]
+
+        try:
+            if action_name == "MOVE_MOUSE" and len(clean_args) == 2:
+                self.controller.move_mouse(int(clean_args[0]), int(clean_args[1]))
+            elif action_name == "CLICK":
+                if len(clean_args) == 2:
+                    self.controller.click(int(clean_args[0]), int(clean_args[1]))
+                else:
+                    self.controller.click()
+            elif action_name == "TYPE" and clean_args:
+                self.controller.type_text(clean_args[0])
+            elif action_name == "PRESS" and clean_args:
+                self.controller.press_key(clean_args[0])
+            elif action_name == "RUN_CMD" and clean_args:
+                self.controller.run_command(clean_args[0])
+            elif action_name == "BG_CLICK" and len(clean_args) == 2:
+                self.controller.interact_with_window(clean_args[0], "click", clean_args[1])
+        except Exception as e:
+            print(f"Execution Error: {e}")
 
         wait_match = re.search(r'WAIT:\s*(\d+)', content)
         if wait_match:

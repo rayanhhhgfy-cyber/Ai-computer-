@@ -19,6 +19,7 @@ def main(page: ft.Page):
     running = False
     remote_bridge = None
     remote_running = False
+    current_instruction = None
 
     # UI Components
     title = ft.Text("AI System Controller", size=30, weight=ft.FontWeight.BOLD)
@@ -52,27 +53,34 @@ def main(page: ft.Page):
             llm_path = "data/models/phi3.gguf"
             vision_path = "data/models/moondream.gguf"
             if not os.path.exists(llm_path) or not os.path.exists(vision_path):
-                log("Local models not found. Downloading 'Phi-3' & 'Moondream'...", ft.colors.AMBER)
+                log("Local models missing. Downloading...", ft.colors.AMBER)
                 llm_url, vision_url = get_best_model_for_specs()
                 os.makedirs("data/models", exist_ok=True)
-                download_model(llm_url, llm_path)
-                download_model(vision_url, vision_path)
-                log("Downloads complete!", ft.colors.GREEN)
+                # Threaded download to prevent UI hang
+                threading.Thread(target=run_downloads, args=(llm_url, llm_path, vision_url, vision_path), daemon=True).start()
+                return
 
+        start_agent_logic()
+
+    def run_downloads(l_url, l_path, v_url, v_path):
+        download_model(l_url, l_path)
+        download_model(v_url, v_path)
+        log("Downloads complete! Click Wake Up again.", ft.colors.GREEN)
+
+    def start_agent_logic():
+        nonlocal engine, running, remote_bridge, remote_running
         if not offline_toggle.value and not api_key_input.value:
-            log("Error: API Key required for online mode", ft.colors.RED)
+            log("Error: API Key required", ft.colors.RED)
             return
 
         if remote_toggle.value:
             if not remote_url.value or not remote_key.value:
-                log("Error: Supabase credentials required for Remote", ft.colors.RED)
+                log("Error: Supabase credentials required", ft.colors.RED)
                 return
             remote_bridge = SupabaseBridge(remote_url.value, remote_key.value)
             remote_running = True
             threading.Thread(target=remote_poll_loop, daemon=True).start()
-            log("Remote Sync Active.")
 
-        log("Initializing AI Engine...")
         engine = AIEngine(
             api_key=api_key_input.value,
             base_url=base_url_input.value,
@@ -83,13 +91,12 @@ def main(page: ft.Page):
         running = True
         start_button.disabled = True
         stop_button.disabled = False
-        status_text.value = "Status: ACTIVE (Watching Screen)"
+        status_text.value = "Status: ACTIVE"
         status_text.color = ft.colors.GREEN
 
         threading.Thread(target=agent_loop, daemon=True).start()
         if remote_bridge:
             threading.Thread(target=screenshot_sync_loop, daemon=True).start()
-
         page.update()
 
     def on_stop_click(e):
@@ -104,17 +111,21 @@ def main(page: ft.Page):
         page.update()
 
     def agent_loop():
-        nonlocal running
-        first_run = True
+        nonlocal running, current_instruction
         while running:
             try:
-                instruction = user_input.value if first_run else None
-                if instruction:
+                # Check for new local input
+                if user_input.value:
+                    current_instruction = user_input.value
                     user_input.value = ""
+                    page.update()
 
-                response = engine.process_step(user_input=instruction)
+                response = engine.process_step(user_input=current_instruction)
                 log(f"AI: {response}", ft.colors.CYAN_200)
-                first_run = False
+
+                # Clear instruction after first step if it's not a multi-step task goal
+                # In this architecture, the AI continues based on screen until TASK_COMPLETE
+                current_instruction = None
                 time.sleep(3)
             except Exception as ex:
                 log(f"Loop Error: {ex}", ft.colors.RED)
@@ -122,12 +133,13 @@ def main(page: ft.Page):
                 break
 
     def remote_poll_loop():
+        nonlocal current_instruction
         while remote_running:
             try:
                 cmd = remote_bridge.get_latest_command()
                 if cmd:
-                    log(f"Remote Command Received: {cmd['instruction']}", ft.colors.AMBER)
-                    user_input.value = cmd['instruction']
+                    log(f"Remote Command: {cmd['instruction']}", ft.colors.AMBER)
+                    current_instruction = cmd['instruction']
                     remote_bridge.update_command_status(cmd['id'])
             except: pass
             time.sleep(5)
