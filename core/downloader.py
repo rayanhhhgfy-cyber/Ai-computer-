@@ -28,8 +28,8 @@ def get_best_model_for_specs():
     """
     # Optimized GGUF for 8GB RAM (Phi-3 Mini)
     llm_url = "https://huggingface.co/bartowski/Phi-3-mini-4k-instruct-GGUF/resolve/main/Phi-3-mini-4k-instruct-Q4_K_M.gguf"
-    # Optimized Vision model for 8GB RAM (Moondream2)
-    vision_url = "https://huggingface.co/vikhyatk/moondream2/resolve/main/moondream2.gguf"
+    # Valid Community Moondream2 GGUF
+    vision_url = "https://huggingface.co/bartowski/moondream2-GGUF/resolve/main/moondream2-q4_k_m.gguf"
     return llm_url, vision_url
 
 if __name__ == "__main__":

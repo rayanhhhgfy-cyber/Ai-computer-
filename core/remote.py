@@ -1,6 +1,7 @@
 import requests
 import time
 import json
+from datetime import datetime
 
 class SupabaseBridge:
     def __init__(self, url, key):
@@ -52,7 +53,9 @@ class SupabaseBridge:
         """Sends the latest screenshot to a 'state' table to show on the iPhone."""
         endpoint = f"{self.url}/rest/v1/state"
         # We use an upsert (id=1) for the current state
-        data = {"id": 1, "last_screenshot": base64_image, "updated_at": "now()"}
+        # ISO format for Supabase compatibility
+        now_iso = datetime.utcnow().isoformat()
+        data = {"id": 1, "last_screenshot": base64_image, "updated_at": now_iso}
         headers = self.headers.copy()
         headers["Prefer"] = "resolution=merge-duplicates"
         try:
