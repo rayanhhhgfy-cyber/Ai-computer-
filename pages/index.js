@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Send, Terminal, Monitor, Lock } from 'lucide-react';
+import { Send, Terminal, Monitor, Lock, AlertCircle } from 'lucide-react';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Use environment variables, but handle the case where they might be missing during build
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+// Initialize client only if we have the credentials
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 export default function RemoteControl() {
   const [password, setPassword] = useState('');
@@ -15,14 +18,27 @@ export default function RemoteControl() {
   const [status, setStatus] = useState('Disconnected');
 
   useEffect(() => {
-    if (isAuth) {
+    if (isAuth && supabase) {
+      // Real-time logs
       const logSub = supabase.channel('logs').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logs' }, payload => {
         setLogs(prev => [payload.new, ...prev].slice(0, 50));
       }).subscribe();
 
+      // Real-time state (screenshot)
       const stateSub = supabase.channel('state').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'state' }, payload => {
         setScreenshot(payload.new.last_screenshot);
       }).subscribe();
+
+      // Initial fetch
+      const fetchInitial = async () => {
+        const { data: logData } = await supabase.from('logs').select('*').order('created_at', { ascending: false }).limit(20);
+        if (logData) setLogs(logData);
+
+        const { data: stateData } = await supabase.from('state').select('last_screenshot').eq('id', 1).single();
+        if (stateData) setScreenshot(stateData.last_screenshot);
+      };
+
+      fetchInitial();
 
       return () => {
         supabase.removeChannel(logSub);
@@ -40,11 +56,22 @@ export default function RemoteControl() {
   };
 
   const sendCommand = async () => {
-    if (!command) return;
+    if (!command || !supabase) return;
     const { error } = await supabase.from('commands').insert([{ instruction: command, status: 'pending' }]);
     if (error) alert(error.message);
     else setCommand('');
   };
+
+  if (!supabaseUrl || !supabaseKey) {
+    return (
+      <div style={{ backgroundColor: '#121212', height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', fontFamily: 'sans-serif', padding: 20, textAlign: 'center' }}>
+        <AlertCircle size={48} color="#f44336" style={{ marginBottom: 20 }} />
+        <h1>Missing API Keys</h1>
+        <p>Please add <b>NEXT_PUBLIC_SUPABASE_URL</b> and <b>NEXT_PUBLIC_SUPABASE_ANON_KEY</b> to your Vercel Environment Variables.</p>
+        <p style={{ fontSize: 12, color: '#666' }}>Then redeploy the project.</p>
+      </div>
+    );
+  }
 
   if (!isAuth) {
     return (
@@ -56,7 +83,7 @@ export default function RemoteControl() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Enter Access Code"
-          style={{ padding: 12, borderRadius: 8, border: 'none', width: '80%', maxWidth: 300, marginBottom: 20 }}
+          style={{ padding: 12, borderRadius: 8, border: 'none', width: '80%', maxWidth: 300, marginBottom: 20, color: '#000' }}
         />
         <button onClick={handleLogin} style={{ padding: '12px 24px', borderRadius: 8, border: 'none', backgroundColor: '#0070f3', color: 'white', fontWeight: 'bold' }}>UNLOCK</button>
       </div>
@@ -74,7 +101,7 @@ export default function RemoteControl() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           <Monitor size={18} /> <strong>Current PC View</strong>
         </div>
-        <div style={{ width: '100%', height: 200, backgroundColor: '#111', borderRadius: 10, overflow: 'hidden', border: '1px solid #333' }}>
+        <div style={{ width: '100%', height: 220, backgroundColor: '#111', borderRadius: 10, overflow: 'hidden', border: '1px solid #333' }}>
           {screenshot ? (
             <img src={`data:image/jpeg;base64,${screenshot}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           ) : (
