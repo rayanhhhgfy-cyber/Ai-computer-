@@ -197,13 +197,11 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     print("Starting Peak AI UI...")
-    # Using strings for icons and colors for maximum compatibility
+    # Use explicit target to be safe
     try:
-        ft.app(target=main)
+        # Launching in web browser mode by default to avoid Windows Desktop initialization hangs
+        ft.app(target=main, view=ft.AppView.WEB_BROWSER)
     except Exception as e:
-        print(f"Error launching Flet: {e}")
+        print(f"Error: {e}")
         # Final fallback
-        import flet_fastapi
-        print("Launching in web mode...")
-        ft.app(target=main, view=None)
->>>>>>> REPLACE
+        ft.app(target=main)
