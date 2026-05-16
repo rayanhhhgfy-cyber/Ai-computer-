@@ -188,7 +188,7 @@ def main(page: ft.Page):
         ft.Text("Execution Log:"),
         ft.Container(
             content=log_area,
-            border=ft.border.all(1, "grey"),
+            border=ft.Border.all(1, "grey"),
             border_radius=10,
             height=250,
         ),
@@ -200,8 +200,8 @@ if __name__ == "__main__":
     # Use explicit target to be safe
     try:
         # Launching in web browser mode by default to avoid Windows Desktop initialization hangs
-        ft.app(target=main, view=ft.AppView.WEB_BROWSER)
+        ft.run(main, view=ft.AppView.WEB_BROWSER)
     except Exception as e:
         print(f"Error: {e}")
         # Final fallback
-        ft.app(target=main)
+        ft.run(main)
