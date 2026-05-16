@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-:: Change directory to the script's location
+:: IMPORTANT: Ensure we are in the pc_agent directory for imports to work
 cd /d "%~dp0"
 
 echo ==========================================
@@ -32,24 +32,29 @@ if "!PY_CMD!"=="" (
 echo Using: !PY_CMD!
 !PY_CMD! --version
 
-:: 2. Upgrade pip
+:: 2. Set PYTHONPATH to the current directory (pc_agent)
+:: This is CRITICAL to fix "ModuleNotFoundError: No module named 'core'"
+set PYTHONPATH=%CD%
+echo PYTHONPATH set to: %PYTHONPATH%
+
+:: 3. Upgrade pip
 echo Upgrading pip...
 !PY_CMD! -m pip install --upgrade pip
 
-:: 3. Install dependencies
+:: 4. Install dependencies
 echo Installing dependencies...
-:: Use --only-binary to avoid building from source where possible
 !PY_CMD! -m pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu --only-binary=:all:
 !PY_CMD! -m pip install -r pc_requirements.txt
 
-:: 4. Launch Application
+:: 5. Launch Application
 echo.
 echo Launching UI...
+:: Run from the parent of 'ui' so that 'import core' works
 !PY_CMD! ui/main.py
 if !errorlevel! neq 0 (
     echo.
     echo [!] The application crashed.
-    echo If you see 'ModuleNotFoundError', try running this script as Administrator.
+    echo Check if all files in 'core' and 'ui' folders are present.
     pause
 )
 pause
