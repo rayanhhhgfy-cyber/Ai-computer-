@@ -1,7 +1,16 @@
+import sys
+import os
+
+# Add the parent directory (pc_agent) to sys.path so 'core' can be found
+# even if run directly from the 'ui' folder.
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
 import flet as ft
 import threading
 import time
-import os
 from core.engine import AIEngine
 from core.downloader import download_model, get_best_model_for_specs
 from core.remote import SupabaseBridge
@@ -50,13 +59,12 @@ def main(page: ft.Page):
         nonlocal engine, running, remote_bridge, remote_running
 
         if offline_toggle.value:
-            llm_path = "data/models/phi3.gguf"
-            vision_path = "data/models/moondream.gguf"
+            llm_path = os.path.join(parent_dir, "data", "models", "phi3.gguf")
+            vision_path = os.path.join(parent_dir, "data", "models", "moondream.gguf")
             if not os.path.exists(llm_path) or not os.path.exists(vision_path):
                 log("Local models missing. Downloading...", ft.colors.AMBER)
                 llm_url, vision_url = get_best_model_for_specs()
-                os.makedirs("data/models", exist_ok=True)
-                # Threaded download to prevent UI hang
+                os.makedirs(os.path.join(parent_dir, "data", "models"), exist_ok=True)
                 threading.Thread(target=run_downloads, args=(llm_url, llm_path, vision_url, vision_path), daemon=True).start()
                 return
 
@@ -114,7 +122,6 @@ def main(page: ft.Page):
         nonlocal running, current_instruction
         while running:
             try:
-                # Check for new local input
                 if user_input.value:
                     current_instruction = user_input.value
                     user_input.value = ""
@@ -123,8 +130,6 @@ def main(page: ft.Page):
                 response = engine.process_step(user_input=current_instruction)
                 log(f"AI: {response}", ft.colors.CYAN_200)
 
-                # Clear instruction after first step if it's not a multi-step task goal
-                # In this architecture, the AI continues based on screen until TASK_COMPLETE
                 current_instruction = None
                 time.sleep(3)
             except Exception as ex:
@@ -192,4 +197,5 @@ def main(page: ft.Page):
     )
 
 if __name__ == "__main__":
-    ft.app(main)
+    # Use the target parameter to avoid the DeprecationWarning
+    ft.app(target=main)

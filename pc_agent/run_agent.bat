@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-:: IMPORTANT: Ensure we are in the pc_agent directory for imports to work
+:: IMPORTANT: Force the current directory to be the one where this script is located
 cd /d "%~dp0"
 
 echo ==========================================
@@ -33,9 +33,7 @@ echo Using: !PY_CMD!
 !PY_CMD! --version
 
 :: 2. Set PYTHONPATH to the current directory (pc_agent)
-:: This is CRITICAL to fix "ModuleNotFoundError: No module named 'core'"
 set PYTHONPATH=%CD%
-echo PYTHONPATH set to: %PYTHONPATH%
 
 :: 3. Upgrade pip
 echo Upgrading pip...
@@ -49,12 +47,11 @@ echo Installing dependencies...
 :: 5. Launch Application
 echo.
 echo Launching UI...
-:: Run from the parent of 'ui' so that 'import core' works
+:: Call from the root of pc_agent so that internal imports work correctly
 !PY_CMD! ui/main.py
 if !errorlevel! neq 0 (
     echo.
     echo [!] The application crashed.
-    echo Check if all files in 'core' and 'ui' folders are present.
     pause
 )
 pause
