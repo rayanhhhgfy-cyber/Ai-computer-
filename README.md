@@ -25,14 +25,23 @@ You can control the AI on your PC from your iPhone without installing anything.
 #### A. Supabase Setup
 - Create a free project on [Supabase](https://supabase.com).
 - Create 3 tables (all lowercase):
-  1. `logs` (column: `message` text)
-  2. `commands` (columns: `instruction` text, `status` text)
-  3. `state` (columns: `id` int8 primary, `last_screenshot` text, `updated_at` timestamptz)
+  1. `logs`
+     - `message` (text)
+     - `created_at` (timestamptz, default: `now()`)
+  2. `commands`
+     - `id` (int8, primary key)
+     - `instruction` (text)
+     - `status` (text, e.g., 'pending')
+     - `created_at` (timestamptz, default: `now()`)
+  3. `state`
+     - `id` (int8, primary key)
+     - `last_screenshot` (text)
+     - `updated_at` (timestamptz, default: `now()`)
 - Get your `URL` and `Anon Key`.
 
 #### B. Vercel Deployment
 - Import this repository to Vercel.
-- Vercel will automatically detect the Next.js project in the root.
+- Vercel will use the `vercel.json` in the root to build the project.
 - Add Environment Variables:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
