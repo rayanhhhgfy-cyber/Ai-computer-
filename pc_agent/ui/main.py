@@ -1,8 +1,7 @@
 import sys
 import os
 
-# Add the parent directory (pc_agent) to sys.path so 'core' can be found
-# even if run directly from the 'ui' folder.
+# Add the parent directory (pc_agent) to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
@@ -197,5 +196,11 @@ def main(page: ft.Page):
     )
 
 if __name__ == "__main__":
-    # Use the target parameter to avoid the DeprecationWarning
-    ft.app(target=main)
+    print("Starting Peak AI UI...")
+    print("Note: If this is the first time, it may take 1-2 minutes to initialize.")
+    # Explicitly using AppView.WEB if Desktop fails to hang
+    try:
+        ft.app(target=main)
+    except Exception as e:
+        print(f"Desktop UI failed, trying Web Mode: {e}")
+        ft.app(target=main, view=ft.AppView.WEB_BROWSER)
