@@ -16,11 +16,11 @@ from core.remote import SupabaseBridge
 
 def main(page: ft.Page):
     page.title = "Peak Reasoning AI Agent"
-    page.theme_mode = ft.ThemeMode.DARK
+    page.theme_mode = "dark"
     page.window_width = 500
     page.window_height = 900
     page.padding = 20
-    page.scroll = ft.ScrollMode.ADAPTIVE
+    page.scroll = "adaptive"
 
     # State variables
     engine = None
@@ -30,7 +30,7 @@ def main(page: ft.Page):
     current_instruction = None
 
     # UI Components
-    title = ft.Text("AI System Controller", size=30, weight=ft.FontWeight.BOLD)
+    title = ft.Text("AI System Controller", size=30, weight="bold")
 
     api_key_input = ft.TextField(label="API Key (OpenAI/Groq/etc)", password=True, can_reveal_password=True)
     base_url_input = ft.TextField(label="Base URL (Optional)", value="https://api.openai.com/v1")
@@ -43,12 +43,12 @@ def main(page: ft.Page):
     remote_key = ft.TextField(label="Supabase Key", password=True, can_reveal_password=True)
     remote_toggle = ft.Switch(label="Enable Remote Control (iPhone)", value=False)
 
-    status_text = ft.Text("Status: Standby", color=ft.colors.GREY_400)
+    status_text = ft.Text("Status: Standby", color="grey")
     log_area = ft.ListView(expand=True, spacing=10, padding=10, auto_scroll=True)
 
     user_input = ft.TextField(label="Instructions for the AI", multiline=True, min_lines=2)
 
-    def log(message, color=ft.colors.WHITE):
+    def log(message, color="white"):
         log_area.controls.append(ft.Text(f"[{time.strftime('%H:%M:%S')}] {message}", color=color))
         if remote_bridge:
             threading.Thread(target=remote_bridge.post_log, args=(message,), daemon=True).start()
@@ -61,7 +61,7 @@ def main(page: ft.Page):
             llm_path = os.path.join(parent_dir, "data", "models", "phi3.gguf")
             vision_path = os.path.join(parent_dir, "data", "models", "moondream.gguf")
             if not os.path.exists(llm_path) or not os.path.exists(vision_path):
-                log("Local models missing. Downloading...", ft.colors.AMBER)
+                log("Local models missing. Downloading...", "amber")
                 llm_url, vision_url = get_best_model_for_specs()
                 os.makedirs(os.path.join(parent_dir, "data", "models"), exist_ok=True)
                 threading.Thread(target=run_downloads, args=(llm_url, llm_path, vision_url, vision_path), daemon=True).start()
@@ -72,17 +72,17 @@ def main(page: ft.Page):
     def run_downloads(l_url, l_path, v_url, v_path):
         download_model(l_url, l_path)
         download_model(v_url, v_path)
-        log("Downloads complete! Click Wake Up again.", ft.colors.GREEN)
+        log("Downloads complete! Click Wake Up again.", "green")
 
     def start_agent_logic():
         nonlocal engine, running, remote_bridge, remote_running
         if not offline_toggle.value and not api_key_input.value:
-            log("Error: API Key required", ft.colors.RED)
+            log("Error: API Key required", "red")
             return
 
         if remote_toggle.value:
             if not remote_url.value or not remote_key.value:
-                log("Error: Supabase credentials required", ft.colors.RED)
+                log("Error: Supabase credentials required", "red")
                 return
             remote_bridge = SupabaseBridge(remote_url.value, remote_key.value)
             remote_running = True
@@ -99,7 +99,7 @@ def main(page: ft.Page):
         start_button.disabled = True
         stop_button.disabled = False
         status_text.value = "Status: ACTIVE"
-        status_text.color = ft.colors.GREEN
+        status_text.color = "green"
 
         threading.Thread(target=agent_loop, daemon=True).start()
         if remote_bridge:
@@ -113,7 +113,7 @@ def main(page: ft.Page):
         start_button.disabled = False
         stop_button.disabled = True
         status_text.value = "Status: Standby"
-        status_text.color = ft.colors.GREY_400
+        status_text.color = "grey"
         log("Agent Stopped.")
         page.update()
 
@@ -127,12 +127,12 @@ def main(page: ft.Page):
                     page.update()
 
                 response = engine.process_step(user_input=current_instruction)
-                log(f"AI: {response}", ft.colors.CYAN_200)
+                log(f"AI: {response}", "cyan")
 
                 current_instruction = None
                 time.sleep(3)
             except Exception as ex:
-                log(f"Loop Error: {ex}", ft.colors.RED)
+                log(f"Loop Error: {ex}", "red")
                 running = False
                 break
 
@@ -142,7 +142,7 @@ def main(page: ft.Page):
             try:
                 cmd = remote_bridge.get_latest_command()
                 if cmd:
-                    log(f"Remote Command: {cmd['instruction']}", ft.colors.AMBER)
+                    log(f"Remote Command: {cmd['instruction']}", "amber")
                     current_instruction = cmd['instruction']
                     remote_bridge.update_command_status(cmd['id'])
             except: pass
@@ -157,8 +157,8 @@ def main(page: ft.Page):
                 except: pass
             time.sleep(10)
 
-    start_button = ft.ElevatedButton("WAKE UP AGENT", on_click=on_start_click, icon=ft.icons.PLAY_ARROW)
-    stop_button = ft.ElevatedButton("STOP AGENT", on_click=on_stop_click, icon=ft.icons.STOP, disabled=True)
+    start_button = ft.ElevatedButton("WAKE UP AGENT", on_click=on_start_click, icon="PLAY_ARROW")
+    stop_button = ft.ElevatedButton("STOP AGENT", on_click=on_stop_click, icon="STOP", disabled=True)
 
     page.add(
         title,
@@ -178,7 +178,7 @@ def main(page: ft.Page):
                 remote_toggle,
                 remote_url,
                 remote_key,
-                ft.Text("Password: rayyan3mkidk", size=12, color=ft.colors.GREY_500)
+                ft.Text("Password: rayyan3mkidk", size=12, color="grey")
             ]
         ),
         ft.Row([start_button, stop_button]),
@@ -188,19 +188,22 @@ def main(page: ft.Page):
         ft.Text("Execution Log:"),
         ft.Container(
             content=log_area,
-            border=ft.border.all(1, ft.colors.GREY_700),
+            border=ft.border.all(1, "grey"),
             border_radius=10,
             height=250,
         ),
-        ft.Text("Shortcut: Esc+Enter to Kill All Processes", size=12, color=ft.colors.RED_300)
+        ft.Text("Shortcut: Esc+Enter to Kill All Processes", size=12, color="red")
     )
 
 if __name__ == "__main__":
     print("Starting Peak AI UI...")
-    print("Note: If this is the first time, it may take 1-2 minutes to initialize.")
-    # Explicitly using AppView.WEB if Desktop fails to hang
+    # Using strings for icons and colors for maximum compatibility
     try:
         ft.app(target=main)
     except Exception as e:
-        print(f"Desktop UI failed, trying Web Mode: {e}")
-        ft.app(target=main, view=ft.AppView.WEB_BROWSER)
+        print(f"Error launching Flet: {e}")
+        # Final fallback
+        import flet_fastapi
+        print("Launching in web mode...")
+        ft.app(target=main, view=None)
+>>>>>>> REPLACE
